@@ -35,8 +35,9 @@ u_doc must contain:
 **Success returns: True**
  
 ```
-app.user.check_auth()
+app.user.check_auth(roles)
 ```
+**Roles** - contains list with roles for checking auth ..['admin']
 It is checking permission and other params as authorization (validness, freshness etc).
 Possible next errors:
  - Not LogIn
