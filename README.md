@@ -32,7 +32,7 @@ u_doc must contain:
  - ['token_live_time'] = '86400'  //it is time for checking fresh session on not
  - ['roles'] = ['admin','superadmin']  //it is using for checking permission
 
-**Success returns: True**
+Success returns: True
  
 ```
 app.user.check_auth(roles)
@@ -46,7 +46,7 @@ Possible next errors:
  - Session not fresh
  - Not enough permission
 
-**Success returns: True**
+Success returns: True
  
 ```
 app.user.login(user_name,user_pass)  //cretes new session dictionary and generate new log_token
@@ -57,7 +57,7 @@ Possible next errors:
  - No Such User
  - Wrong Pass
 
-**Success returns: True**
+Success returns: True
  
 ```
 app.user.drop()
@@ -65,7 +65,7 @@ app.user.drop()
 Set log-tokne='None'
 
 
-###BEFORE INIT
+#####BEFORE INIT
 
 You need to determine other than default DB (simple db.txt file).
 
