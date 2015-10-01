@@ -27,25 +27,25 @@ app.user.registr(u_doc)
 
 It creates new user in DB. 
 u_doc must contain:
-['name'] = 'some user name'
-['pass'] = 'some pass' //it will be converted to md5 when inserting to DB
-['token_live_time'] = '86400'  //it is time for checking fresh session on not
-['roles'] = ['admin','superadmin']  //it is using for checking permission
----------
-Success returns: True
+-['name'] = 'some user name'
+-['pass'] = 'some pass' //it will be converted to md5 when inserting to DB
+-['token_live_time'] = '86400'  //it is time for checking fresh session on not
+-['roles'] = ['admin','superadmin']  //it is using for checking permission
+
+**Success returns: True**
  
 ```
 app.user.check_auth()
 ```
 It is checking permission and other params as authorization (validness, freshness etc).
 Possible next errors:
-Not LogIn
-Not Valid Log Token
-Not Valid IP
-Session not fresh
-Not enough permission
----------
-Success returns: True
+-Not LogIn
+-Not Valid Log Token
+-Not Valid IP
+-Session not fresh
+-Not enough permission
+
+**Success returns: True**
  
 ```
 app.user.login(user_name,user_pass)  //cretes new session dictionary and generate new log_token
@@ -53,10 +53,10 @@ app.user.login(user_name,user_pass)  //cretes new session dictionary and generat
 
 If check_auth have dropped - you need to logIn (generate new log_token)
 Possible next errors:
-No Such User
-Wrong Pass
----------
-Success returns: True
+-No Such User
+-Wrong Pass
+
+**Success returns: True**
  
 ```
 app.user.drop()
@@ -64,7 +64,7 @@ app.user.drop()
 Set log-tokne='None'
 
 
-BEFORE INIT
+###BEFORE INIT
 
 You need to determine other than default DB (simple db.txt file).
 
