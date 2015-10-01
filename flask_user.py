@@ -2,11 +2,11 @@ import time
 from itsdangerous import Signer
 import base64
 import json
-
+import md5
 
 
 class User():
-    def __init__(secret_key):
+    def __init__(self,secret_key):
         #initialize signer
         self.s = Signer(secret_key)
         
@@ -15,50 +15,81 @@ class User():
         #it runs in framework BEFORE_REQUEST function
         self.cookies = request.cookies
         #check stat in cookie and verify it
-        stat_str = self.cookies.get('stat')
-        stat_signature = self.cookies.get('stat_signature')
+        stat_str = str(self.cookies.get('stat'))
+        stat_signature = str(self.cookies.get('stat_signature'))
         stat_token = stat_str+'.'+stat_signature
         
-        if stat_str==None or self.s.validate(stat_token)==False:
-            self.create_new_stat(request)
 
+        if stat_str=='None' or self.s.validate(stat_token)==False:
+            self._create_new_stat(request)
         #if validation success
-        self.stat = json.loads(stat_str)        
+        else:
+            self.stat = json.loads(stat_str)        
+
+        #increase kolvo_visits
+        self._increase_kolvo_visits()
 
         #add actual IP for checking log_token
         self.stat['ip'] = request.environ['SERVER_NAME']
+        self.log_token = str(self.cookies.get('log_token'))
+
+        #initialize DB
+        self._db_init()
+
 
 
     def serialize(self,response):
         #it runs in framework AFTER_REQUEST function
         stat_str = json.dumps(self.stat)
-        self.stat_signature = s.sign(stat_str).split('.')[1]
-        response.set_cookie('stat',stat_str)
-        response.set_cookie('stat_signature',stat_signature)
 
-        if self.log_token!=None:
-            response.set_cookie('log_token',self.log_token)
+        sign_str = self.s.sign(stat_str)
+        last_elem = len(sign_str.split('.'))
+        #because dots in IP
+        self.stat_signature = sign_str.split('.')[last_elem-1]
+
+        response.set_cookie('stat',value=stat_str)
+        response.set_cookie('stat_signature',value=self.stat_signature)
+
+        if self.log_token!='None':
+            response.set_cookie('log_token',value=self.log_token)
 
 
-    def create_new_stat(self,request):
+        #increase visits
+        return response
+
+    def _create_new_stat(self,request):
         self.stat = {}
         
+
         self.stat['ip'] = request.environ['SERVER_NAME']
         self.stat['first_reg'] = int(time.time())
         self.stat['kolvo_visits'] = 1
         self.stat['user_id'] = 'yap'+str(int(time.time()))
+        self.stat['last_visit'] = int(time.time()/86400)
+
+
+    def _increase_kolvo_visits(self):
+        new_day = int(time.time()/86400)
+        if self.stat.get('last_visit')==None:
+            self.stat['last_visit'] = int(time.time()/86400)
+
+        if int(self.stat.get('last_visit'))<new_day:
+            self.stat['kolvo_visits'] = self.stat['kolvo_visits']+1
+            self.stat['last_visit'] = new_day
+
+
 
     def check_auth(self,roles):
-        log_token = self.cookies.get('log_token')
 
-        if log_token==None:
+        if self.log_token=='None':
             return 'Error User:Not Login, Please Log IN'
 
-        if self.s.validate(log_token)!=True:
-            return 'Error User:Not Valid Stat Token. Please, Log IN'
+        if self.s.validate(self.log_token)!=True:
+            print False
+            return 'Error User:Not Valid Login Token. Please, Log IN'
 
         
-        self.session = self.get_json(log_token)
+        self.session = self._get_json(self.log_token)
 
         if self.session['ip']!=self.stat['ip']:
             return 'Error User:Not valid IP. Please, log IN'
@@ -67,23 +98,28 @@ class User():
         if (int(time.time()) - int(self.session['ts']))>int(self.session['live_time']):
             return 'Error User:Session nor fresh, please Log IN'
 
-        return True
+        #check permission
+        for each in self.session['roles']:
+            if each in roles:
+                return True
 
-    def login(self,user_name,user_pass, token_live_time=86400):
-        #if user id in db and pass is equal md5 with secret
-        #change user id in stat
-        self.log_token = self.gen_token()
-        #return new token
-        pass
+
+
+        return 'Error User:Not enough permission'
+
+
         
-        
-    def gen_token(self,user_id,user_roles,user_ip,token_live_time):
+    def _gen_token(self,user_id,u_doc):
         self.session = {}
+
         self.session['user_id'] = user_id
+        self.session['user_name'] = u_doc['name']
         self.session['ts'] = int(time.time())
-        self.session['roles'] = user_roles
-        self.session['live_time'] = token_live_time
+        self.session['roles'] = u_doc['roles']
+        self.session['live_time'] = u_doc.get('token_live_time')
         self.session['ip'] = self.stat['ip']
+
+
 
         #create JSON from dict and compress
         j = json.dumps(self.session)
@@ -94,7 +130,7 @@ class User():
     
         return j64_sign
     
-    def get_json(self,token):
+    def _get_json(self,token):
         if self.s.validate(token)!=True:
             return 'Error User: not valid Log Token'
         
@@ -102,49 +138,74 @@ class User():
         j = base64.b64decode(jb64)
         j = json.loads(j)
         return j
-        
 
 
+    def login(self,user_name,user_pass):
+        #if user id in db and pass is equal md5 with secret
+        #change user id in stat
+
+        #check user name and get user doc
+        u_doc,u_id = self._db_check_in(user_name)
+
+        if u_doc==False:
+            return 'Error User:No such User'
+
+        #check pass
+        if self._md5_trans(user_pass)!=u_doc['pass']:
+            return 'Error User:Wrong Pass'
+
+
+        self.log_token = self._gen_token(u_id, u_doc)
+        return True
+
+
+    def registr(self,u_doc):
+        user_id = 'yap'+str(int(time.time()))
+        if self._db_check_in(u_doc['name'])!=False:
+            return 'Error User:There is user with the name:'+u_doc['name']
+
+
+        u_doc['pass'] = self._md5_trans(u_doc['pass'])
+
+        self._db_add(user_id,u_doc)
+        return True
+
+
+
+    def drop_log_token(self):
+        self.log_token = 'None'
+        return True
+
+    def _md5_trans(self,rec):
+        m = md5.new()
+        m.update(rec)
+        return m.hexdigest()
+
+    ##########  DB  #################
+    def _db_init(self):
+        t = open('../flask_user/db.txt','r')
+        r = t.read()
+        t.close()
+        self.db = json.loads(r)
+
+
+    def _db_check_in(self,u_name):
+
+        for each in self.db:
+            try:
+                c = self.db.get(each)['name']
+                if u_name==c:
+                    return self.db[each], each
+            except:
+                pass
+
+        return False
     
-def help():
-    print '''
-
-    User class
-
-    app.user = User()
-    app.user.deserialize(request)
-        //chech signature (included in stat JSON) and generally stat JSON
-        //if succes - return User object with stat dict.
-        //if fail - run self.create_new_user(request) to generate new stat json
-        in any case - deserialize returns user object with json dict
-
-    
-    
-        //pass request container with para to User Class. User class determine
-        //if request.COOKIE contains user_id
-
-    app.user.create_new(request)
-        //returns new user object with all data based on 
+    def _db_add(self,u_id,user_d):
+        self.db[u_id] = user_d
+        db_str = json.dumps(self.db)
+        t = open('../flask_user/db.txt','w')
+        t.write(db_str)
+        t.close()
 
 
-    Pylog - my library for generating token which consits of JSON encoding with BASE64 and signed.
-    JSON comprises data which can be used for further (in next requests) checking, as an instance
-    ip - you can check Ip. So, if IP will be changing (modiles) - checking will be false.
-
-
-    pl = Pylog(86400,'andrii')
-        :token_live_time  - time for saving cookie (1 day = 86500 in sec)
-        :secret_key
-        
-    token = pl.gen_token('3242',[admin,superadmin],'188.166.24.65')
-        :user_id
-        :user_roles - list with roles, views with this roles will be accessible for user
-        :user_ip - it is using for checkig in next time
-
-    json_dict = pl.get_json(token)
-    pl.check_token(token,request_ob)
-        :token = string
-        :reqiest_obj - request, to retrive environ and user ip from IT
-    
-
-'''
