@@ -30,7 +30,7 @@ class User():
         self._increase_kolvo_visits()
 
         #add actual IP for checking log_token
-        self.stat['ip'] = request.environ['SERVER_NAME']
+        self.stat['ip'] = request.environ['REMOTE_ADDR']
         self.log_token = str(self.cookies.get('log_token'))
 
         #initialize DB
@@ -61,7 +61,7 @@ class User():
         self.stat = {}
         
 
-        self.stat['ip'] = request.environ['SERVER_NAME']
+        self.stat['ip'] = request.environ['REMOTE_ADDR']
         self.stat['first_reg'] = int(time.time())
         self.stat['kolvo_visits'] = 1
         self.stat['user_id'] = 'yap'+str(int(time.time()))
@@ -183,7 +183,7 @@ class User():
 
     ##########  DB  #################
     def _db_init(self):
-        t = open('../flask_user/db.txt','r')
+        t = open('./flask_user/db.txt','r')
         r = t.read()
         t.close()
         self.db = json.loads(r)
@@ -204,7 +204,7 @@ class User():
     def _db_add(self,u_id,user_d):
         self.db[u_id] = user_d
         db_str = json.dumps(self.db)
-        t = open('../flask_user/db.txt','w')
+        t = open('./flask_user/db.txt','w')
         t.write(db_str)
         t.close()
 
