@@ -3,6 +3,7 @@ from itsdangerous import Signer
 import base64
 import json
 import md5
+from pymongo import MongoClient
 
 
 class User():
@@ -142,7 +143,6 @@ class User():
 
     def login(self,user_name,user_pass):
         #if user id in db and pass is equal md5 with secret
-        #change user id in stat
 
         #check user name and get user doc
         u_doc,u_id = self._db_check_in(user_name)
@@ -161,12 +161,11 @@ class User():
 
     def registr(self,u_doc):
         user_id = 'yap'+str(int(time.time()))
-        if self._db_check_in(u_doc['name'])!=False:
+        if self._db_check_in(u_doc['name'])!=[False,False]:
             return 'Error User:There is user with the name:'+u_doc['name']
 
 
         u_doc['pass'] = self._md5_trans(u_doc['pass'])
-
         self._db_add(user_id,u_doc)
         return True
 
@@ -183,29 +182,25 @@ class User():
 
     ##########  DB  #################
     def _db_init(self):
-        t = open('./flask_user/db.txt','r')
-        r = t.read()
-        t.close()
-        self.db = json.loads(r)
+	cl = MongoClient('localhost',27017)
+	_db = cl['users']
+	self.db = _db['users']
 
 
     def _db_check_in(self,u_name):
 
-        for each in self.db:
-            try:
-                c = self.db.get(each)['name']
-                if u_name==c:
-                    return self.db[each], each
-            except:
-                pass
+	u_doc = self.db.find_one({'name':u_name})
 
-        return False
+	if u_doc==None:
+		return [False,False]
+
+	return u_doc,u_doc['_id']
+
+
     
     def _db_add(self,u_id,user_d):
-        self.db[u_id] = user_d
-        db_str = json.dumps(self.db)
-        t = open('./flask_user/db.txt','w')
-        t.write(db_str)
-        t.close()
+
+	user_d['_id'] = u_id
+	self.db.insert_one(user_d)
 
 
