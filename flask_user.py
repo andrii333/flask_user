@@ -38,7 +38,6 @@ class User():
         self._db_init()
 
 
-
     def serialize(self,response):
         #it runs in framework AFTER_REQUEST function
         stat_str = json.dumps(self.stat)
@@ -53,6 +52,9 @@ class User():
 
         if self.log_token!='None':
             response.set_cookie('log_token',value=self.log_token)
+	else:
+            response.set_cookie('log_token','',expires=0)
+ 
 
 
         #increase visits
@@ -65,7 +67,7 @@ class User():
         self.stat['ip'] = request.environ['REMOTE_ADDR']
         self.stat['first_reg'] = int(time.time())
         self.stat['kolvo_visits'] = 1
-        self.stat['user_id'] = 'yap'+str(int(time.time()))
+        self.stat['_id'] = 'yap'+str(int(time.time()))
         self.stat['last_visit'] = int(time.time()/86400)
 
 
@@ -86,12 +88,10 @@ class User():
             return 'Error User:Not Login, Please Log IN'
 
         if self.s.validate(self.log_token)!=True:
-            print False
             return 'Error User:Not Valid Login Token. Please, Log IN'
 
         
         self.session = self._get_json(self.log_token)
-
         if self.session['ip']!=self.stat['ip']:
             return 'Error User:Not valid IP. Please, log IN'
         
@@ -113,8 +113,8 @@ class User():
     def _gen_token(self,user_id,u_doc):
         self.session = {}
 
-        self.session['user_id'] = user_id
-        self.session['user_name'] = u_doc['name']
+        self.session['_id'] = user_id
+        self.session['name'] = u_doc['name']
         self.session['ts'] = int(time.time())
         self.session['roles'] = u_doc['roles']
         self.session['live_time'] = u_doc.get('token_live_time')
@@ -145,6 +145,7 @@ class User():
         #if user id in db and pass is equal md5 with secret
 
         #check user name and get user doc
+
         u_doc,u_id = self._db_check_in(user_name)
 
         if u_doc==False:
@@ -154,7 +155,6 @@ class User():
         if self._md5_trans(user_pass)!=u_doc['pass']:
             return 'Error User:Wrong Pass'
 
-
         self.log_token = self._gen_token(u_id, u_doc)
         return True
 
@@ -162,11 +162,13 @@ class User():
     def registr(self,u_doc):
         user_id = 'yap'+str(int(time.time()))
         if self._db_check_in(u_doc['name'])!=[False,False]:
-            return 'Error User:There is user with the name:'+u_doc['name']
+            return 'Error User:There is user with the name '+u_doc['name']
 
 
         u_doc['pass'] = self._md5_trans(u_doc['pass'])
         self._db_add(user_id,u_doc)
+
+	
         return True
 
 
